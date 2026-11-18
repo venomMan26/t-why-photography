@@ -11,18 +11,27 @@ import galleryRoutes from "./routes/gallery.js";
 
 const app = express();
 
-const allowedOrigins = (
-  process.env.CLIENT_URL || "http://localhost:5173"
-).split(",").map((origin) => origin.trim());
+const allowedOrigins = [
+  "https://t-why-photography.vercel.app",
+  "http://localhost:5173",
+  ...(process.env.CLIENT_URL || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+].map((origin) => origin.replace(/\/$/, ""));
 
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    callback(new Error("Origin not allowed by CORS."));
-  },
-}));
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ""))) {
+        return callback(null, true);
+      }
+
+      console.error("Blocked by CORS:", origin);
+      return callback(new Error("Origin not allowed by CORS."));
+    },
+  })
+);
 
 app.use(express.json({ limit: "1mb" }));
 
@@ -38,9 +47,10 @@ app.use((error, req, res, next) => {
 
   if (error instanceof multer.MulterError) {
     return res.status(400).json({
-      message: error.code === "LIMIT_FILE_SIZE"
-        ? "Image must be 5MB or smaller."
-        : error.message,
+      message:
+        error.code === "LIMIT_FILE_SIZE"
+          ? "Image must be 5MB or smaller."
+          : error.message,
     });
   }
 
